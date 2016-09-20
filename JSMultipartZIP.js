@@ -2,16 +2,21 @@
  *  JSMultipartZIP.js
  *  v0.1
  *
- *  Downloads remote content via AJAX and compiles it into a ZIP archive using JSZip and JSZipUtils.
+ *  Downloads remote content via AJAX and compiles it into ZIP archives using JSZip and JSZipUtils.
  *
- *  If the content exceeds the defined maximum size for a part, the content will be split over
+ *  If the content exceeds the defined maximum size for an archive, the content will be split over
  *  a number of parts.
  *
  *  Harri Bell-Thomas, https://hbt.io
  *  License: MIT
- *    See LICENSE.md
+ *    See LICENSE.md in the https://github.com/HarriBellThomas/JSMultipartZIP/ repository.
  */
-var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSizeGB = 0.5) {
+ /*! @source https://github.com/HarriBellThomas/JSMultipartZIP/blob/master/JSMultipartZIP.js */
+
+var JSMultipartZIP = function(stringFilePrefix, maxPartSizeGB) {
+
+    stringFilePrefix = typeof stringFilePrefix !== 'undefined' ? stringFilePrefix : "";
+    maxPartSizeGB = typeof maxPartSizeGB !== 'undefined' ? maxPartSizeGB : 0.5;
 
     $nUNIXTimestamp = Math.floor(Date.now() / 1000);
     $nPartNumber = 1;
@@ -20,8 +25,7 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
     $nCurrentZIPSize = 0;
     $nMaxZIPSize = maxPartSizeGB * 1073741824; // (part size in GB) * 1GB
 
-    $sLibraryBasePath = libraryBasePath;
-    $sFilePrefix = stringFilePrefix;
+    $sFilePrefix = stringFilePrefix + "-";
     $sZIPOutputName = $sFilePrefix + $nUNIXTimestamp + ".zip";
 
     $cZIP = new JSZip();
@@ -33,10 +37,13 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
 
     $downloaderPercentageChangeEvent = function(percentage) {};
     $downloaderLogMessage = function(msg) {};
+    $downloaderOnComplete = function() {};
+    $downloaderNoFilesRetrieved = function() {};
 
 
-    var downloaderAddURL = function(url) {
-        if( !$aURLs.includes(url) ) $aURLs.push(url);
+    var downloaderAddURL = function(url, base) {
+        base = typeof base !== 'undefined' ? base : "";
+        if( !$aURLs.includes(base + url) ) $aURLs.push(base + url);
     };
 
 
@@ -44,7 +51,7 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
 
         if($aURLs.length > 0) {
             var url = $aURLs.pop();
-            JSZipUtils.getBinaryContent($sLibraryBasePath + url, function (err, data) {
+            JSZipUtils.getBinaryContent(url, function (err, data) {
                 if(err) {
                     $downloaderLogMessage("<code>" + url + "</code> couldn't be retrieved from the library.");
                 } else {
@@ -68,13 +75,9 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
         }
     };
 
-    // this.downloaderPercentageChangeEvent = function(percentage) {
-    //
-    // };
+
 
     var downloaderStartNewZIPPart = function() {
-
-        console.log($nCount + " -- new ZIP part");
 
         $cZIP.generateAsync( { type:"blob" } ).then( function(blob) {
             saveAs(blob, $sZIPOutputName);
@@ -90,7 +93,9 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
 
     };
 
-    var downloaderFinishedEvent = function(runFinalDownload = false) {
+    var downloaderFinishedEvent = function(runFinalDownload) {
+
+        runFinalDownload = typeof runFinalDownload !== 'undefined' ? runFinalDownload : false;
 
         if (runFinalDownload && $nCurrentZIPSize > 0) {
             $cZIP.generateAsync( { type:"blob" } ).then( function(blob) {
@@ -99,16 +104,11 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
         }
 
         // set ui to complete
-        jQuery("#downloader .progress-bar")
-        .removeClass("progress-bar-primary")
-        .addClass("progress-bar-success")
-        .text("Done")
-        .css("width", "100%");
+        $downloaderOnComplete();
 
-        // after all download urls processed...
         if(!$boolAtLeastOneFileFound) {
             // no files found, so no download
-            jQuery("#main-container").prepend('<div class="bg-warning notice text-white" style="padding: 6px 20px;"><div class="row items-push"><div class="col-sm-12"><p style="margin: 0;">Nothing downloaded because none of the requested files could be found.</p></div></div></div>');
+            $downloaderNoFilesRetrieved();
         }
 
     };
@@ -117,13 +117,13 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
 
 
     return {
-        addURL: function(url) {
-            downloaderAddURL(url);
+        addURL: function(url, base) {
+            downloaderAddURL(url, base);
         },
 
-        addURLs: function(urls) {
+        addURLs: function(urls, base) {
             urls.forEach( function(url) {
-                downloaderAddURL(url);
+                downloaderAddURL(url, base);
             });
         },
 
@@ -142,6 +142,14 @@ var JSMultipartZIP = function(libraryBasePath, stringFilePrefix = "", maxPartSiz
 
         logCallback: function(callback) {
             $downloaderLogMessage = callback;
+        },
+
+        onCompleteCallback: function(callback) {
+            $downloaderOnComplete = callback;
+        },
+
+        noFilesRetrieved: function(callback) {
+            $downloaderNoFilesRetrieved = callback;
         }
     }
 

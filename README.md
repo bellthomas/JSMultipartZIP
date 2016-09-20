@@ -15,7 +15,7 @@ var downloader = new JSMultipartZIP("Package-", 0.5);
 ```
 The first parameter is a string, and represents the prefix to add on to the generated ZIP files.
 
-The second parameter is an number representing the maximum size of a part in GB. Check out the [Supported Browsers section in the README of Filesaver.js](https://github.com/eligrey/FileSaver.js/, Filesaver.js Supported Browsers)
+The second parameter is an number representing the maximum size of a part in GB. Check out the [Supported Browsers section in the README of Filesaver.js](https://github.com/eligrey/FileSaver.js/)
 
 ###Add URLs to be Downloaded and Archived
 Add a single URL:
